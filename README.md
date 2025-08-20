@@ -52,12 +52,6 @@ Ele conecta múltiplas fontes (**ExternalApi API Manager**, **CSV manual** e **G
 
 ## Diagramas e Fluxos
 
-<img width="1873" height="376" alt="diagram-10659723518816241270" src="https://github.com/user-attachments/assets/26560c72-3814-4fd0-ba4e-906adb826888" />
-<img width="2138" height="1190" alt="diagram-2441047122146955964" src="https://github.com/user-attachments/assets/5ce698c1-d2fe-4bfb-9cd1-9c4a91102074" />
-<img width="1849" height="1949" alt="diagram-3477428146906975697" src="https://github.com/user-attachments/assets/6075bc98-8953-4953-972a-aa444f0460d1" />
-<img width="736" height="1411" alt="diagram-5355553910065449509" src="https://github.com/user-attachments/assets/044c2880-90f1-4e17-b061-9e781aedfa30" />
-<img width="1996" height="1613" alt="diagram-17204571017305448833" src="https://github.com/user-attachments/assets/0b05b530-22ab-4e55-baae-feb13a1d3462" />
-<img width="1417" height="1063" alt="diagram-8670649781081508954" src="https://github.com/user-attachments/assets/5bdeedc3-8666-4a3c-96a9-c81381806f46" />
 
 
 
