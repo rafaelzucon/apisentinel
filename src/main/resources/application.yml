@@ -1,0 +1,67 @@
+spring:
+  main:
+    web-application-type: servlet
+  application:
+    name: apisentinel
+  datasource:
+    url: jdbc:h2:mem:apisentinel;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driverClassName: org.h2.Driver
+    username: sa
+    password: ""
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  batch:
+    jdbc:
+      initialize-schema: never
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:org/springframework/batch/core/schema-h2.sql
+      continue-on-error: true
+
+apisentinel:
+  scheduling:
+    enabled: true
+    cron: "15 * * * * ?"
+  ssl:
+    insecure: false
+  csv:
+    input: "data/input.csv"
+    delimiter: ","
+  output:
+    discovery: "build/discovery.csv"
+    inconsistencies: "build/inconsistencies.csv"
+  externalapi:
+    baseUrl: "https://manager-someclient.externalapi.com/api-manager/api/v3"
+    token: "secret-key-token"
+  governance:
+    baseUrl: "http://localhost:8081"
+    username: "user"
+    password: "pass"
+  gitlab:
+    baseUrl: "https://gitlab.someclient.net"
+    token: "secret-key-token"
+  sync:
+    hmacKey: "super-secret-key"
+    enabled: false
+logging:
+  level:
+    root: INFO
+    br.com.apisentinel: DEBUG
+    org.springframework.test: DEBUG
+    org.springframework.batch: DEBUG
+    org.springframework.batch.core.job: DEBUG
+    org.springframework.batch.core.step: DEBUG
+    org.springframework.batch.core.repository: DEBUG
+    org.springframework.web.reactive.function.client.ExchangeFunctions: DEBUG
+    org.springframework.batch.item: DEBUG
+    org.springframework.batch.repeat: DEBUG
+    org.springframework.jdbc.core: DEBUG
+    org.springframework.jdbc.datasource: DEBUG
+    org.springframework.jdbc.datasource.init: DEBUG

@@ -1,0 +1,44 @@
+@startuml
+title Fluxo de Dados - Sincronização API Gateway (ExternalApi)
+
+start
+:Disparo (cron via ExternalApiSyncScheduler) ou runAllOnce();
+:OrchestrationService.runExternalApiSyncOnce();
+
+if (props.sync.enabled?) then (true)
+  :ApiGatewayDiscoveryService.syncFromExternalApi();
+  :ApiManagerClient.getApis();
+  :Lista<ExternalApiApi>;
+  repeat
+    :Para cada ExternalApiApi;
+    :Normaliza nome/versão/contexto\n(NameNormalizer, fallback GitLab se faltar);
+    :Calcula changeHash (ChangeHashUtil);
+    :AssetGWRepository.findByGwAssetId(id);
+    if (Encontrou?) then (não)
+      :Construir novo AssetGW;
+      :Definir createdIn, governed=false,\ncampos do GW (id, version, exposure...);
+      :Salvar (repository.save);
+    else (sim)
+      :Merge campos mutáveis;
+      if (hash mudou?) then (sim)
+        :Atualiza changeHash;
+      endif
+      :Salvar (repository.save);
+    endif
+
+    :syncGovernanceFromApi();
+    :GovernanceClient.findByNameAndVersion();
+    if (existe?) then (sim)
+      :GovernanceClient.update();
+      :DiscoveryLogRepository.save(UPDATED);
+    else (não)
+      :GovernanceClient.create();
+      :DiscoveryLogRepository.save(CREATED);
+    endif
+  repeat while (há mais APIs?)
+else (false)
+  :Encerrar sem sincronizar;
+endif
+
+stop
+@enduml

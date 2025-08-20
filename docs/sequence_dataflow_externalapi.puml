@@ -1,0 +1,51 @@
+@startuml
+title Sequência - Sincronização API Gateway
+
+actor Scheduler
+participant ExternalApiSyncScheduler
+participant OrchestrationService
+participant ApiGatewayDiscoveryService
+participant ApiManagerClient
+participant GitLabClient
+participant GovernanceClient
+database H2 as H2DB
+participant AssetGWRepository
+participant DiscoveryLogRepository
+
+Scheduler -> ExternalApiSyncScheduler : cron
+ExternalApiSyncScheduler -> OrchestrationService : runExternalApiSyncOnce()
+
+alt props.sync.enabled == true
+  OrchestrationService -> ApiGatewayDiscoveryService : syncFromExternalApi()
+  ApiGatewayDiscoveryService -> ApiManagerClient : getApis()
+  ApiManagerClient --> ApiGatewayDiscoveryService : List<ExternalApiApi>
+
+  loop for each API
+    ApiGatewayDiscoveryService -> AssetGWRepository : findByGwAssetId(id)
+    AssetGWRepository --> ApiGatewayDiscoveryService : Optional<AssetGW>
+
+    alt not found
+      ApiGatewayDiscoveryService -> AssetGWRepository : save(new AssetGW)
+      AssetGWRepository --> H2DB : insert asset_gw
+    else found
+      ApiGatewayDiscoveryService -> AssetGWRepository : save(update AssetGW)
+      AssetGWRepository --> H2DB : update asset_gw
+    end
+
+    ApiGatewayDiscoveryService -> GovernanceClient : findByNameAndVersion()
+    alt exists
+      ApiGatewayDiscoveryService -> GovernanceClient : update(type,id,req)
+      GovernanceClient --> ApiGatewayDiscoveryService : completed
+      ApiGatewayDiscoveryService -> DiscoveryLogRepository : save(UPDATED)
+      DiscoveryLogRepository --> H2DB : insert discovery_log
+    else not exists
+      ApiGatewayDiscoveryService -> GovernanceClient : create(type,req)
+      GovernanceClient --> ApiGatewayDiscoveryService : id/path
+      ApiGatewayDiscoveryService -> DiscoveryLogRepository : save(CREATED)
+      DiscoveryLogRepository --> H2DB : insert discovery_log
+    end
+  end
+else
+  OrchestrationService -> OrchestrationService : skip
+end
+@enduml

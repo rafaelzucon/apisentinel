@@ -1,0 +1,83 @@
+@startuml
+title Arquitetura de Alto Nível (minimal)
+
+left to right direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam componentStyle rectangle
+skinparam defaultFontName Monospaced
+
+rectangle "Interface" as IF
+rectangle "Orchestrator" as ORCH
+rectangle "CSV Pipeline" as CSV
+rectangle "API GW Pipeline" as APIGW
+rectangle "HTTP Clients" as CLI
+rectangle "Repos/DB" as REPO
+rectangle "Infra Externa" as EXT
+
+IF --> ORCH
+ORCH --> CSV
+ORCH --> APIGW
+CSV --> CLI
+APIGW --> CLI
+CSV --> REPO
+APIGW --> REPO
+REPO --> EXT
+CLI --> EXT
+
+note as N1
+Interface:
+- UploadController (REST)
+- ScheduledLauncher / ExternalApiSyncScheduler
+end note
+N1 .. IF
+
+note as N2
+Orchestrator:
+- OrchestrationService
+- Dispara job CSV
+- Dispara sync API GW
+- Move input.csv -> input_processed.csv
+end note
+N2 .. ORCH
+
+note as N3
+CSV Pipeline:
+- ApiSentinelJobConfig (csvReader/csvWriter)
+- CsvDiscoveryService (governança, tags GitLab, inconsistências)
+end note
+N3 .. CSV
+
+note as N4
+API GW Pipeline:
+- ApiGatewayDiscoveryService (ExternalApi, tags, GitLab -> Governança)
+end note
+N4 .. APIGW
+
+note as N5
+HTTP Clients (WebClient):
+- ApiManagerClient (ExternalApi)
+- GovernanceClient
+- GitLabClient
+end note
+N5 .. CLI
+
+note as N6
+Repos/DB:
+- AssetGWRepository
+- DiscoveryLogRepository
+- InconsistencyLogRepository
+- H2 (JPA)
+end note
+N6 .. REPO
+
+note as N7
+Infra Externa:
+- ExternalApi API Manager
+- Governance API
+- GitLab
+- FS (data/, build/)
+end note
+N7 .. EXT
+
+@enduml

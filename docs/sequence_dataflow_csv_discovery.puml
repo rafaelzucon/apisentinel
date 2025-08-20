@@ -1,0 +1,80 @@
+@startuml
+title Sequência - Processamento CSV
+
+actor Scheduler
+actor User as U
+participant UploadController
+participant OrchestrationService
+participant ApiSentinelJobConfig
+participant csvReader
+participant csvWriter
+participant CsvDiscoveryService
+participant GovernanceClient
+participant GitLabClient
+participant AssetGWRepository
+participant DiscoveryLogRepository
+participant InconsistencyLogRepository
+database H2 as H2DB
+participant FS
+
+== Disparo por agendamento ==
+Scheduler -> OrchestrationService : runCsvDiscoveryOnce()
+
+== Disparo via upload ==
+U -> UploadController : POST /ingestions/csv (multipart)
+UploadController -> OrchestrationService : runAllOnce()
+
+== Execução do Job ==
+OrchestrationService -> ApiSentinelJobConfig : csvDiscoveryJob
+ApiSentinelJobConfig -> csvReader : open(data/input.csv)
+
+loop para cada linha
+  csvReader --> csvWriter : CsvAssetRow
+  csvWriter -> CsvDiscoveryService : process(row)
+
+  alt name vazio
+    CsvDiscoveryService -> InconsistencyLogRepository : save(NAME_REQUIRED)
+    InconsistencyLogRepository --> H2DB : insert inconsistency_log
+  else name ok
+    opt precisa inferir version/context
+      CsvDiscoveryService -> GovernanceClient : findByName(name)
+      alt encontrou asset?
+        GovernanceClient --> CsvDiscoveryService : asset (version/context)
+      else não encontrou
+        CsvDiscoveryService -> GitLabClient : findProjectByName(name)
+        GitLabClient --> CsvDiscoveryService : projects/tags
+      end
+    end
+
+    alt faltas (version/context)
+      CsvDiscoveryService -> InconsistencyLogRepository : save(VERSION_REQUIRED ou CONTEXT_REQUIRED)
+      InconsistencyLogRepository --> H2DB : insert
+    else ok
+      CsvDiscoveryService -> GovernanceClient : findByNameAndVersion()
+      alt existe
+        CsvDiscoveryService -> GovernanceClient : update(...)
+        CsvDiscoveryService -> DiscoveryLogRepository : save(UPDATED)
+      else não existe
+        CsvDiscoveryService -> GovernanceClient : create(...)
+        CsvDiscoveryService -> DiscoveryLogRepository : save(CREATED)
+      end
+      DiscoveryLogRepository --> H2DB : insert discovery_log
+
+      alt accessScope == EXTERNAL
+        CsvDiscoveryService -> GovernanceClient : createAssociation(EXPOSES)
+        CsvDiscoveryService -> DiscoveryLogRepository : save(ASSOCIATION_CREATED ou EXPOSED_NOT_FOUND)
+        DiscoveryLogRepository --> H2DB : insert
+      end
+
+      CsvDiscoveryService -> AssetGWRepository : findByNameAndVersion()
+      AssetGWRepository --> CsvDiscoveryService : Optional<AssetGW>
+      CsvDiscoveryService -> AssetGWRepository : save(entity with hash)
+      AssetGWRepository --> H2DB : insert/update asset_gw
+    end
+  end
+end
+
+== Pós-job: rename ==
+OrchestrationService -> FS : move data/input.csv -> input_processed.csv
+
+@enduml

@@ -1,0 +1,142 @@
+@startuml
+title Relações entre classes - ApiSentinel
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+package config {
+  class ApiSentinelProperties {
+    +Output output
+    +Scheduling scheduling
+    +Ssl ssl
+    +Csv csv
+    +ExternalApi externalapi
+    +Governance governance
+    +Gitlab gitlab
+    +Sync sync
+  }
+  class WebClientConfig {
+    +webClient(): WebClient
+  }
+}
+
+package batch {
+  class ApiSentinelJobConfig {
+    +csvReader(String): FlatFileItemReader<CsvAssetRow>
+    +csvWriter(): ItemWriter<CsvAssetRow>
+    +csvDiscoveryStep(...)
+    +csvDiscoveryJob(...)
+  }
+  class ScheduledLauncher {
+    +runCsvDiscovery()
+  }
+  class ExternalApiSyncScheduler {
+    +runExternalApiSync()
+  }
+}
+
+package controller {
+  class UploadController {
+    +uploadCsv(FilePart): Mono<ResponseEntity<Map>>
+  }
+}
+
+package service {
+  class OrchestrationService {
+    +runCsvDiscoveryOnce()
+    +runExternalApiSyncOnce()
+    +runAllOnce()
+  }
+  class CsvDiscoveryService {
+    +process(CsvAssetRow)
+    -upsertDb(RestServiceArtifactRequest)
+  }
+  class ApiGatewayDiscoveryService {
+    +syncFromExternalApi()
+    -upsert(ExternalApiApi)
+    -syncGovernanceFromApi(...)
+  }
+}
+
+package client {
+  class ApiManagerClient {
+    +getApis(): Mono<List<ExternalApiApi>>
+  }
+  class GovernanceClient {
+    +findByNameAndVersion(...): Mono<GenericArtifactResponse>
+    +findByName(...): Mono<GenericArtifactResponse>
+    +create(...): Mono<PublisherNewGenericArtifactResponse>
+    +update(...): Mono<Void>
+    +createAssociation(...): Mono<GenericArtifactResponse>
+  }
+  class GitLabClient {
+    +findProjectByName(String): Mono<List<Project>>
+    +getTagsByProjectId(Long): Mono<List<Tag>>
+  }
+}
+
+package repository {
+  interface AssetGWRepository
+  interface DiscoveryLogRepository
+  interface InconsistencyLogRepository
+}
+
+package domain {
+  class AssetGW
+  class DiscoveryLog
+  class InconsistencyLog
+}
+
+package dto {
+  class CsvAssetRow
+}
+
+package util {
+  class ChangeHashUtil {
+    {static} +compute(...)
+  }
+  class NameNormalizer {
+    {static} +toKebab(...)
+    {static} +normalize(...)
+  }
+}
+
+' Associações
+
+UploadController --> OrchestrationService
+ScheduledLauncher --> OrchestrationService
+ApiSentinelJobConfig --> CsvDiscoveryService
+ApiSentinelJobConfig --> dto.CsvAssetRow
+ExternalApiSyncScheduler --> OrchestrationService
+
+OrchestrationService --> ApiSentinelJobConfig
+OrchestrationService --> CsvDiscoveryService
+OrchestrationService --> ApiGatewayDiscoveryService
+
+CsvDiscoveryService --> GovernanceClient
+CsvDiscoveryService --> GitLabClient
+CsvDiscoveryService --> repository.AssetGWRepository
+CsvDiscoveryService --> repository.DiscoveryLogRepository
+CsvDiscoveryService --> repository.InconsistencyLogRepository
+CsvDiscoveryService --> util.ChangeHashUtil
+CsvDiscoveryService --> util.NameNormalizer
+
+ApiGatewayDiscoveryService --> ApiManagerClient
+ApiGatewayDiscoveryService --> GovernanceClient
+ApiGatewayDiscoveryService --> GitLabClient
+ApiGatewayDiscoveryService --> repository.AssetGWRepository
+ApiGatewayDiscoveryService --> repository.DiscoveryLogRepository
+ApiGatewayDiscoveryService --> util.ChangeHashUtil
+ApiGatewayDiscoveryService --> util.NameNormalizer
+
+repository.AssetGWRepository --> domain.AssetGW
+repository.DiscoveryLogRepository --> domain.DiscoveryLog
+repository.InconsistencyLogRepository --> domain.InconsistencyLog
+
+WebClientConfig --> ApiSentinelProperties
+ApiManagerClient --> WebClientConfig
+GovernanceClient --> WebClientConfig
+GitLabClient --> WebClientConfig
+
+
+@enduml

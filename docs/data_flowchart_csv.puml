@@ -1,0 +1,72 @@
+@startuml
+title Fluxo de Dados - Processamento CSV (Batch)
+
+start
+:Disparo (cron via ScheduledLauncher)\nou via UploadController.runAllOnce();
+:OrchestrationService.runCsvDiscoveryOnce();
+:Executa Job csvDiscoveryJob (ApiSentinelJobConfig);
+:csvReader lê data/input.csv;
+
+repeat
+  :Lê próxima linha -> CsvAssetRow;
+
+  if (name está vazio?) then (sim)
+    :InconsistencyLogRepository.save(NAME_REQUIRED);
+  else (não)
+    ' --- inferência de version/context quando host é ON_PREMISE ou AWS ---
+    if (host é ON_PREMISE ou AWS?) then (sim)
+      :GovernanceClient.findByName(name);
+      if (encontrou asset?) then (sim)
+        :Usa version/context do asset;
+      else (não)
+        :GitLabClient.findProjectByName(name);
+        if (projeto exato?) then (sim)
+          :context = "/{namespace}"\nTag -> major version;
+        else (não)
+          :InconsistencyLogRepository.save(GITLAB_MULTIPLE_OR_NOT_FOUND);
+        endif
+      endif
+    endif
+
+    ' --- validações obrigatórias ---
+    if (version vazio?) then (sim)
+      :InconsistencyLogRepository.save(VERSION_REQUIRED);
+    else (não)
+      if (context vazio?) then (sim)
+        :InconsistencyLogRepository.save(CONTEXT_REQUIRED);
+      else (não)
+        ' --- criar/atualizar na Governança ---
+        :Monta RestServiceArtifactRequest;
+        :GovernanceClient.findByNameAndVersion();
+        if (existe?) then (sim)
+          :GovernanceClient.update();
+          :DiscoveryLogRepository.save(UPDATED);
+        else (não)
+          :GovernanceClient.create();
+          :DiscoveryLogRepository.save(CREATED);
+        endif
+
+        ' --- associação se EXTERNAL ---
+        if (accessScope == EXTERNAL?) then (sim)
+          :Procura asset base (sem -gtw);
+          if (achou?) then (sim)
+            :GovernanceClient.createAssociation(EXPOSES);
+            :DiscoveryLogRepository.save(ASSOCIATION_CREATED);
+          else (não)
+            :DiscoveryLogRepository.save(EXPOSED_ASSET_NOT_FOUND);
+          endif
+        endif
+
+        ' --- upsert em banco + hash ---
+        :upsertDb(req) -> AssetGWRepository\l(calcula hash, salva,\lloga HASH_CHANGED se alterou);
+      endif
+    endif
+  endif
+
+repeat while (há mais linhas?) is (sim) not (não)
+
+:Ao concluir job: mover arquivo;
+:FS move data/input.csv -> data/input_processed.csv;
+
+stop
+@enduml
