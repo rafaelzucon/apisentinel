@@ -1,0 +1,101 @@
+openapi: 3.0.3
+info:
+  title: ApiSentinel
+  version: "0.0.1"
+  description: |
+    API do ApiSentinel para ingestão de CSV e orquestração de pipelines (CSV e API Gateway).
+    - **/ingestions/csv**: recebe um arquivo CSV (multipart) e dispara o processamento.
+    - Após o job, renomeia `data/input.csv` para `data/input_processed.csv`.
+
+servers:
+  - url: http://localhost:8080
+    description: Local
+
+tags:
+  - name: Ingestions
+    description: Endpoints de ingestão de dados
+
+paths:
+  /ingestions/csv:
+    post:
+      tags:
+        - Ingestions
+      summary: Envia CSV para ingestão e dispara processamento
+      description: >
+        Recebe um arquivo CSV via multipart/form-data, salva em `ApiSentinel.csv.input` (default `data/input.csv`),
+        e executa `runAllOnce()` (job CSV + sync opcional). Retorna 202 Accepted quando a orquestração é iniciada.
+      operationId: uploadCsv
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Arquivo CSV a ser ingerido
+            encoding:
+              file:
+                contentType: text/csv
+      responses:
+        "202":
+          description: Ingestão aceita e processamento iniciado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionAccepted'
+              examples:
+                accepted:
+                  summary: Exemplo de aceito
+                  value:
+                    status: accepted
+                    message: "Arquivo recebido e processamento iniciado."
+                    savedTo: "data/input.csv"
+                    timestamp: "2025-08-22T13:45:22Z"
+        "500":
+          description: Erro interno ao receber ou iniciar o processamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                fail:
+                  summary: Exemplo de erro
+                  value:
+                    status: error
+                    message: "Falha ao renomear arquivo CSV para 'input_processed.csv'"
+
+components:
+  schemas:
+    IngestionAccepted:
+      type: object
+      required: [status, message, savedTo, timestamp]
+      properties:
+        status:
+          type: string
+          example: accepted
+        message:
+          type: string
+          example: Arquivo recebido e processamento iniciado.
+        savedTo:
+          type: string
+          description: Caminho final onde o arquivo foi salvo antes do processamento
+          example: data/input.csv
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-08-22T13:45:22Z"
+
+    ErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: "Falha ao renomear arquivo CSV para 'input_processed.csv'"

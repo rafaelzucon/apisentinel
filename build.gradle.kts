@@ -28,6 +28,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("com.google.guava:guava:33.2.1-jre")
     implementation("org.apache.commons:commons-csv:1.10.0")
+    implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:2.5.0")
     compileOnly("org.projectlombok:lombok:1.18.34")
     annotationProcessor("org.projectlombok:lombok:1.18.34")
 
